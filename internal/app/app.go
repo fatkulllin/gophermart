@@ -23,7 +23,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("connect to Database is unavailable: %w", err)
 	}
 
-	logger.Log.Info("successfully connected to database")
+	logger.Log.Debug("successfully connected to database")
 
 	err = store.Bootstrap(migrations.FS)
 
@@ -31,7 +31,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("migrate is not run: %w", err)
 	}
 
-	logger.Log.Info("database migrated successfully")
+	logger.Log.Debug("database migrated successfully")
 
 	server := server.NewServer(cfg)
 
