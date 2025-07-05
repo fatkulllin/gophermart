@@ -3,9 +3,12 @@ package app
 import (
 	"fmt"
 
+	"github.com/fatkulllin/gophermart/internal/auth"
 	"github.com/fatkulllin/gophermart/internal/config"
+	"github.com/fatkulllin/gophermart/internal/handlers"
 	"github.com/fatkulllin/gophermart/internal/logger"
 	"github.com/fatkulllin/gophermart/internal/server"
+	"github.com/fatkulllin/gophermart/internal/service"
 	pg "github.com/fatkulllin/gophermart/internal/store"
 	"github.com/fatkulllin/gophermart/migrations"
 )
@@ -33,7 +36,13 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 	logger.Log.Debug("database migrated successfully")
 
-	server := server.NewServer(cfg)
+	tokenManager := auth.NewJWTManager(cfg.JWTSecret, cfg.JWTExpires)
+
+	logger.Log.Debug("init jwt manager successfully")
+
+	service := service.NewService(store, tokenManager)
+	handlers := handlers.NewHandlers(service)
+	server := server.NewServer(cfg, handlers)
 
 	return &App{
 		store:  store,

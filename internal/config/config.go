@@ -13,6 +13,8 @@ type Config struct {
 	Database             string `env:"DATABASE_URI"`
 	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
 	GoEnv                string `env:"ENV"`
+	JWTSecret            string `env:"JWT_SECRET_KEY"`
+	JWTExpires           int    `env:"JWT_EXPIRES"`
 }
 
 func validateAddress(s string) error {
@@ -29,11 +31,15 @@ func LoadConfig() (*Config, error) {
 		Address:              "localhost:8080",
 		Database:             "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable",
 		AccrualSystemAddress: "",
+		JWTSecret:            "TOKEN",
+		JWTExpires:           24,
 	}
 
 	pflag.StringVarP(&config.Address, "address", "a", config.Address, "set host:port")
 	pflag.StringVarP(&config.Database, "database", "d", config.Database, "set database dsn")
 	pflag.StringVarP(&config.AccrualSystemAddress, "asa", "r", config.AccrualSystemAddress, "set accrual system address")
+	pflag.StringVarP(&config.JWTSecret, "secret", "s", config.JWTSecret, "set secret token")
+	pflag.IntVarP(&config.JWTExpires, "expires", "e", config.JWTExpires, "set expires jwt")
 	pflag.Parse()
 
 	err := env.Parse(&config)
