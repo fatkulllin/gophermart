@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/fatkulllin/gophermart/internal/luhn"
 	"github.com/fatkulllin/gophermart/internal/model"
 	"github.com/fatkulllin/gophermart/internal/password"
 )
@@ -11,6 +13,7 @@ import (
 type Repositories interface {
 	SaveUser(ctx context.Context, user model.UserCredentials) (int, error)
 	GetUser(ctx context.Context, user model.UserCredentials) (model.User, error)
+	SaveOrder(ctx context.Context, user model.User, orderNumber int64) (model.Order, int64, error)
 }
 
 type TokenManager interface {
@@ -27,6 +30,9 @@ type Service struct {
 	tokenManager TokenManager
 	// password     Password
 }
+
+var ErrInvalidOrder = errors.New("invalid order")
+var ErrOrderConflict = errors.New("order conflict")
 
 func NewService(repo Repositories, tokenManager TokenManager) *Service {
 	return &Service{repo: repo, tokenManager: tokenManager}
@@ -74,4 +80,25 @@ func (s Service) UserLogin(ctx context.Context, user model.UserCredentials) (str
 	}
 
 	return tokenString, tokenExpires, nil
+}
+
+func (s Service) OrderSave(ctx context.Context, claims model.Claims, orderNumber int) (string, error) {
+	if !luhn.Valid(orderNumber) {
+		return "", ErrInvalidOrder
+	}
+	user := model.User{
+		ID:    claims.UserID,
+		Login: claims.UserLogin,
+	}
+	order, saveRows, err := s.repo.SaveOrder(ctx, user, int64(orderNumber))
+	if err != nil {
+		return "", err
+	}
+	if order.UserID != claims.UserID {
+		return "", ErrOrderConflict
+	}
+	if saveRows == 0 {
+		return "EXIST", nil
+	}
+	return order.Status, nil
 }

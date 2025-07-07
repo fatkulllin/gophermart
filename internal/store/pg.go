@@ -91,3 +91,34 @@ func (s *Store) GetUser(ctx context.Context, user model.UserCredentials) (model.
 	}
 	return foundUser, nil
 }
+
+func (s *Store) SaveOrder(ctx context.Context, user model.User, orderNumber int64) (model.Order, int64, error) {
+	row := s.conn.QueryRowContext(ctx, "SELECT user_id, order_number, status FROM orders WHERE order_number = $1", orderNumber)
+	var founderOrder model.Order
+	err := row.Scan(&founderOrder.UserID, &founderOrder.OrderNumber, &founderOrder.Status)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			tx, err := s.conn.BeginTx(ctx, nil)
+			if err != nil {
+				return founderOrder, 0, fmt.Errorf("pg failed start transaction: %w", err)
+			}
+			defer tx.Rollback()
+
+			resultInsert, err := tx.ExecContext(ctx, "INSERT INTO orders (user_id, order_number, status) VALUES ($1, $2, $3);", user.ID, orderNumber, "NEW")
+
+			if err != nil {
+				return founderOrder, 0, fmt.Errorf("pg failed to insert new order %v login %s: %w", orderNumber, user.Login, err)
+			}
+
+			err = tx.Commit()
+
+			if err != nil {
+				return founderOrder, 0, fmt.Errorf("pg failed to commit transaction: %w", err)
+			}
+			rowsAffect, _ := resultInsert.RowsAffected()
+			return model.Order{UserID: user.ID, OrderNumber: orderNumber, Status: "NEW"}, rowsAffect, nil
+		}
+		return model.Order{}, 0, fmt.Errorf("check existing order_number: %w", err)
+	}
+	return founderOrder, 0, nil
+}

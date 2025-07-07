@@ -1,8 +1,10 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 
+	"github.com/fatkulllin/gophermart/internal/contextkeys"
 	"github.com/fatkulllin/gophermart/internal/logger"
 	"github.com/fatkulllin/gophermart/internal/model"
 	"github.com/golang-jwt/jwt/v5"
@@ -21,9 +23,9 @@ func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 
 			tokenString := cookie.Value
 
-			claims := &model.Claims{}
+			claims := model.Claims{}
 
-			token, err := jwt.ParseWithClaims(tokenString, claims,
+			token, err := jwt.ParseWithClaims(tokenString, &claims,
 				func(t *jwt.Token) (interface{}, error) {
 					return []byte(secret), nil
 				})
@@ -38,13 +40,10 @@ func AuthMiddleware(secret string) func(http.Handler) http.Handler {
 				http.Error(res, "token is not valid", http.StatusUnauthorized)
 				return
 			}
-
 			logger.Log.Debug("token is valid", zap.String("login", claims.UserLogin))
-			next.ServeHTTP(res, req)
-
 			// // Можно получить пользовательские данные из token.Claims и положить в контекст
-			// ctx := context.WithValue(req.Context(), "user", token.Claims)
-			// next.ServeHTTP(res, req.WithContext(ctx))
+			ctx := context.WithValue(req.Context(), contextkeys.UserContextKey, claims)
+			next.ServeHTTP(res, req.WithContext(ctx))
 		})
 	}
 }

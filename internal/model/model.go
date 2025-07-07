@@ -23,5 +23,12 @@ type Claims struct {
 	UserLogin string
 }
 
+type Order struct {
+	UserID      int
+	OrderNumber int64
+	Status      string
+	Accrual     float64
+}
+
 var ErrUserExists = errors.New("user already exists")
 var ErrIncorrectPassword = errors.New("incorrect password")

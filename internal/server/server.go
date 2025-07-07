@@ -35,6 +35,7 @@ func (server *Server) Start() error {
 	r.Post("/api/user/login", server.handlers.UserLogin)
 	r.Group(func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(server.config.JWTSecret))
+		r.Post("/api/user/orders", server.handlers.LoadOrderNumber)
 		r.Get("/debug", server.handlers.Debug)
 	})
 
