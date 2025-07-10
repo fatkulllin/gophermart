@@ -122,3 +122,57 @@ func (s *Store) SaveOrder(ctx context.Context, user model.User, orderNumber int6
 	}
 	return founderOrder, 0, nil
 }
+
+func (s *Store) GetOrders() ([]model.Order, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	listOrderNumbersScan := make([]model.Order, 0)
+
+	rows, err := s.conn.QueryContext(ctx, "SELECT order_number, status FROM orders WHERE status IN ('NEW', 'PROCESSING');")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var order model.Order
+		err = rows.Scan(&order.OrderNumber, &order.Status)
+		if err != nil {
+			return nil, err
+		}
+
+		listOrderNumbersScan = append(listOrderNumbersScan, order)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	return listOrderNumbersScan, nil
+}
+
+func (s *Store) UpdateOrderStatus(ctx context.Context, order model.Order) error {
+
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, "UPDATE orders SET status = $2, accrual = $3 WHERE order_number = $1;")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, order.OrderNumber, order.Status, order.Accrual)
+	if err != nil {
+		return fmt.Errorf("storage failed to update status %s order %d error: %s", order.Status, order.OrderNumber, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("storage failed to commit transaction: %d error: %s", order.OrderNumber, err)
+	}
+
+	return nil
+}

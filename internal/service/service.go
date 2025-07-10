@@ -2,18 +2,27 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+	"time"
 
+	"github.com/fatkulllin/gophermart/internal/logger"
 	"github.com/fatkulllin/gophermart/internal/luhn"
 	"github.com/fatkulllin/gophermart/internal/model"
 	"github.com/fatkulllin/gophermart/internal/password"
+	"go.uber.org/zap"
 )
 
 type Repositories interface {
 	SaveUser(ctx context.Context, user model.UserCredentials) (int, error)
 	GetUser(ctx context.Context, user model.UserCredentials) (model.User, error)
 	SaveOrder(ctx context.Context, user model.User, orderNumber int64) (model.Order, int64, error)
+	GetOrders() ([]model.Order, error)
+	UpdateOrderStatus(ctx context.Context, order model.Order) error
 }
 
 type TokenManager interface {
@@ -101,4 +110,101 @@ func (s Service) OrderSave(ctx context.Context, claims model.Claims, orderNumber
 		return "EXIST", nil
 	}
 	return order.Status, nil
+}
+
+func (s *Service) GetOrdersProcessing(jobs chan<- model.Order) error {
+	listOrders, err := s.repo.GetOrders()
+	if err != nil {
+		return err
+	}
+
+	for _, value := range listOrders {
+		jobs <- value
+	}
+	return nil
+}
+
+// TODO нужен грейсфул шатдаун
+func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSystemAddress string, jobsRetry chan<- model.Order) {
+	endpoint, err := url.Parse(accrualSystemAddress)
+	if err != nil {
+		logger.Log.Error("invalid accrual system address", zap.Error(err), zap.String("address", accrualSystemAddress))
+	}
+
+	client := &http.Client{}
+
+	for j := range jobs {
+		func(j model.Order) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			endpoint.Path = fmt.Sprintf("/api/orders/%d", j.OrderNumber)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+			if err != nil {
+				logger.Log.Error("failed to create request", zap.Error(err), zap.Int64("order", j.OrderNumber))
+				return
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				logger.Log.Error("request failed", zap.Error(err), zap.Int64("order", j.OrderNumber))
+				return
+			}
+
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				logger.Log.Info("order is not registred", zap.Int64("order number:", j.OrderNumber))
+				return
+			}
+
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter, err := strconv.Atoi(resp.Header.Get("Retry-After"))
+				if err != nil {
+					logger.Log.Error("failed parse header Retry-After", zap.Int64("order number", j.OrderNumber), zap.Error(err))
+				}
+				logger.Log.Warn("rate limited", zap.Int("retry after (sec)", retryAfter))
+				time.Sleep(time.Duration(retryAfter) * time.Second)
+				return
+
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				logger.Log.Error("unexpected status code",
+					zap.Int64("order", j.OrderNumber),
+					zap.Int("status", resp.StatusCode))
+				return
+			}
+
+			var result model.Order
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				logger.Log.Error("failed to decode accrual response", zap.Int64("order number", j.OrderNumber), zap.Error(err))
+				return
+			}
+
+			logger.Log.Debug("order processed",
+				zap.Int("worker", id),
+				zap.Int64("order number", j.OrderNumber),
+				zap.String("status", result.Status),
+				zap.Float64("accrual", result.Accrual))
+
+			switch result.Status {
+			case "PROCESSED":
+				err := s.repo.UpdateOrderStatus(ctx, result)
+				if err != nil {
+					logger.Log.Error("failed to update PROCESSED order", zap.Int64("order", j.OrderNumber), zap.Error(err))
+				}
+			case "INVALID":
+				err := s.repo.UpdateOrderStatus(ctx, result)
+				if err != nil {
+					logger.Log.Error("failed to update PROCESSED order", zap.Int64("order", j.OrderNumber), zap.Error(err))
+				}
+			case "PROCESSING", "REGISTERED":
+				logger.Log.Info("skip to update status order", zap.Int64("order", j.OrderNumber), zap.String("status", j.Status))
+			default:
+				logger.Log.Warn("unknown order status", zap.String("status", result.Status), zap.Int64("order", j.OrderNumber))
+			}
+
+		}(j)
+	}
 }

@@ -24,10 +24,10 @@ type Claims struct {
 }
 
 type Order struct {
-	UserID      int
-	OrderNumber int64
-	Status      string
-	Accrual     float64
+	UserID      int     `json:"id,omitempty"`
+	OrderNumber int64   `json:"order,string"`
+	Status      string  `json:"status"`
+	Accrual     float64 `json:"accrual"`
 }
 
 var ErrUserExists = errors.New("user already exists")

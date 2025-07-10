@@ -10,12 +10,14 @@ import (
 	"github.com/fatkulllin/gophermart/internal/server"
 	"github.com/fatkulllin/gophermart/internal/service"
 	pg "github.com/fatkulllin/gophermart/internal/store"
+	"github.com/fatkulllin/gophermart/internal/worker"
 	"github.com/fatkulllin/gophermart/migrations"
 )
 
 type App struct {
 	store  *pg.Store
 	server *server.Server
+	worker *worker.Worker
 }
 
 func NewApp(cfg *config.Config) (*App, error) {
@@ -43,13 +45,18 @@ func NewApp(cfg *config.Config) (*App, error) {
 	service := service.NewService(store, tokenManager)
 	handlers := handlers.NewHandlers(service)
 	server := server.NewServer(cfg, handlers)
+	worker := worker.NewWorker(cfg, service)
 
 	return &App{
 		store:  store,
 		server: server,
+		worker: worker,
 	}, nil
 }
 
-func (app *App) Run() error {
-	return app.server.Start()
+// TODO: нужна обработка ошибок
+func (app *App) Run() {
+	go app.worker.Start()
+	app.server.Start()
+
 }

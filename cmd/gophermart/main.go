@@ -30,9 +30,7 @@ func main() {
 	if err != nil {
 		logger.Log.Fatal("failed to initialize gophermart: ", zap.Error(err))
 	}
-
-	if err := app.Run(); err != nil {
-		logger.Log.Fatal("failed to run server", zap.Error(err))
-	}
+	// TODO: нужна обработка ошибок
+	app.Run()
 
 }
