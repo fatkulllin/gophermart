@@ -176,3 +176,12 @@ func (s *Store) UpdateOrderStatus(ctx context.Context, order model.Order) error 
 
 	return nil
 }
+
+func (s *Store) GetUserBalance(ctx context.Context, userID int) (accrual, withdrawn float64, err error) {
+	row := s.conn.QueryRowContext(ctx, "SELECT (SELECT COALESCE(SUM(accrual), 0) FROM orders WHERE user_id = $1 AND status = 'PROCESSED'), (SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE user_id = $1);", userID)
+	err = row.Scan(&accrual, withdrawn)
+	if err != nil {
+		return
+	}
+	return
+}

@@ -30,5 +30,10 @@ type Order struct {
 	Accrual     float64 `json:"accrual"`
 }
 
+type UserBalance struct {
+	Current   float64 `json:"current"`
+	WithDrawn float64 `json:"withdraw"`
+}
+
 var ErrUserExists = errors.New("user already exists")
 var ErrIncorrectPassword = errors.New("incorrect password")

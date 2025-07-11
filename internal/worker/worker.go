@@ -27,7 +27,7 @@ func (w *Worker) Start() {
 
 	workerCount := w.config.WorkerCount
 	for i := range workerCount {
-		go w.service.OrdersProcessing(i, jobs, w.config.AccrualSystemAddress, jobs)
+		go w.service.OrdersProcessing(i, jobs, w.config.AccrualSystemAddress)
 	}
 
 	pollInterval := time.NewTicker(time.Duration(w.config.PollInterval) * time.Second)

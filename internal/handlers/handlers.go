@@ -165,3 +165,28 @@ func (h *Handlers) LoadOrderNumber(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 
 }
+
+func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
+
+	claims, ok := req.Context().Value(contextkeys.UserContextKey).(model.Claims)
+
+	if !ok {
+		http.Error(res, "claims not found", http.StatusUnauthorized)
+		return
+	}
+
+	current, withdrawn, err := h.service.GetUserBalance(req.Context(), claims.UserID)
+
+	if err != nil {
+		logger.Log.Error("failed get user", zap.String("user login", claims.UserLogin), zap.Error(err))
+		http.Error(res, "internal error", http.StatusInternalServerError)
+		return
+	}
+	responseBalance := model.UserBalance{
+		Current:   current,
+		WithDrawn: withdrawn,
+	}
+	res.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(res).Encode(responseBalance)
+
+}

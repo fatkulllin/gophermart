@@ -23,6 +23,7 @@ type Repositories interface {
 	SaveOrder(ctx context.Context, user model.User, orderNumber int64) (model.Order, int64, error)
 	GetOrders() ([]model.Order, error)
 	UpdateOrderStatus(ctx context.Context, order model.Order) error
+	GetUserBalance(ctx context.Context, userID int) (accrual, withdrawn float64, err error)
 }
 
 type TokenManager interface {
@@ -125,7 +126,7 @@ func (s *Service) GetOrdersProcessing(jobs chan<- model.Order) error {
 }
 
 // TODO нужен грейсфул шатдаун
-func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSystemAddress string, jobsRetry chan<- model.Order) {
+func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSystemAddress string) {
 	endpoint, err := url.Parse(accrualSystemAddress)
 	if err != nil {
 		logger.Log.Error("invalid accrual system address", zap.Error(err), zap.String("address", accrualSystemAddress))
@@ -207,4 +208,14 @@ func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSyste
 
 		}(j)
 	}
+}
+
+func (s *Service) GetUserBalance(ctx context.Context, userID int) (current, withdrawn float64, err error) {
+	accrual, withdrawn, err := s.repo.GetUserBalance(ctx, userID)
+	if err != nil {
+		logger.Log.Error("failed get user balance from store ", zap.Error(err))
+		return 0, 0, fmt.Errorf("get user balance %w", err)
+	}
+	current = accrual - withdrawn
+	return
 }
