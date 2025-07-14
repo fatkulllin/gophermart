@@ -49,6 +49,11 @@ jobs:
         run: |
           (cd cmd/gophermart && go build -buildvcs=false -o gophermart)
           (cd cmd/accrual && chmod +x accrual_linux_amd64)
+      - name: Upload gophermart binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: gophermart-binary
+          path: cmd/gophermart/gophermart
 
       - name: Test
         run: |
@@ -62,8 +67,3 @@ jobs:
             -accrual-host=localhost \
             -accrual-port=$(random unused-port) \
             -accrual-database-uri="postgresql://postgres:postgres@postgres/praktikum?sslmode=disable"
-      - name: Upload gophermart binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: gophermart-binary
-          path: cmd/gophermart/gophermart
