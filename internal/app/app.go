@@ -1,7 +1,9 @@
 package app
 
 import (
+	"context"
 	"fmt"
+	"sync"
 
 	"github.com/fatkulllin/gophermart/internal/auth"
 	"github.com/fatkulllin/gophermart/internal/config"
@@ -12,6 +14,7 @@ import (
 	pg "github.com/fatkulllin/gophermart/internal/store"
 	"github.com/fatkulllin/gophermart/internal/worker"
 	"github.com/fatkulllin/gophermart/migrations"
+	"go.uber.org/zap"
 )
 
 type App struct {
@@ -55,8 +58,28 @@ func NewApp(cfg *config.Config) (*App, error) {
 }
 
 // TODO: нужна обработка ошибок
-func (app *App) Run() {
-	go app.worker.Start()
-	app.server.Start()
+func (app *App) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var wg sync.WaitGroup
+	wg.Add(1)
 
+	go func() {
+		defer wg.Done()
+		app.worker.Start(ctx)
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := app.server.Start(ctx); err != nil {
+			logger.Log.Error("server exited with error", zap.Error(err))
+			cancel()
+		}
+	}()
+	<-ctx.Done()
+	logger.Log.Info("shutting down...")
+
+	wg.Wait()
+	logger.Log.Info("shutdown complete")
+	return nil
 }

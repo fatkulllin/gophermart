@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"time"
 
 	"github.com/fatkulllin/gophermart/internal/config"
@@ -22,7 +23,7 @@ func NewWorker(cfg *config.Config, service *service.Service) *Worker {
 	}
 }
 
-func (w *Worker) Start() {
+func (w *Worker) Start(ctx context.Context) {
 	jobs := make(chan model.Order, 5)
 
 	workerCount := w.config.WorkerCount
@@ -31,10 +32,17 @@ func (w *Worker) Start() {
 	}
 
 	pollInterval := time.NewTicker(time.Duration(w.config.PollInterval) * time.Second)
-	for range pollInterval.C {
-		if err := w.service.GetOrdersProcessing(jobs); err != nil {
-			logger.Log.Error("failed processing orders", zap.Error(err))
+	defer pollInterval.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Log.Info("worker shutdown")
+			return
+		case <-time.After(1 * time.Second):
+			if err := w.service.GetOrdersProcessing(jobs); err != nil {
+				logger.Log.Error("failed processing orders", zap.Error(err))
+			}
 		}
 	}
-
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -45,10 +46,18 @@ func NewServer(cfg *config.Config, handlers *handlers.Handlers) *Server {
 			IdleTimeout:  120 * time.Second,
 		},
 	}
+
 }
 
-func (server *Server) Start() error {
-
+func (server *Server) Start(ctx context.Context) error {
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.httpServer.Shutdown(shutdownCtx); err != nil {
+			logger.Log.Error("server shutdown failed", zap.Error(err))
+		}
+	}()
 	logger.Log.Info("Server started on", zap.String("server", server.httpServer.Addr))
 
 	return server.httpServer.ListenAndServe()
