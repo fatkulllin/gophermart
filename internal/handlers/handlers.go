@@ -211,6 +211,7 @@ func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
 		Current:   current,
 		WithDrawn: withdrawn,
 	}
+	logger.Log.Debug("response user balancer", zap.Any("responseBalance", responseBalance))
 	res.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(res).Encode(responseBalance)
 
