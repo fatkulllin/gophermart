@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -217,13 +216,16 @@ func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSyste
 
 func (s *Service) GetUserBalance(ctx context.Context, userID int) (float64, float64, error) {
 	accrual, withdrawn, err := s.repo.GetUserBalance(ctx, userID)
+
+	logger.Log.Debug("get user balance from repository", zap.Float64("accrual", accrual), zap.Float64("withdrawn", withdrawn))
+
 	if err != nil {
 		logger.Log.Error("failed get user balance from store ", zap.Error(err))
 		return 0, 0, fmt.Errorf("get user balance %w", err)
 	}
 
 	current := accrual - withdrawn
-	current = math.Round(current*1e5) / 1e5
+	logger.Log.Debug("user balance", zap.Float64("current", current), zap.Float64("withdrawn", withdrawn))
 	return current, withdrawn, nil
 }
 
