@@ -24,6 +24,9 @@ type Repositories interface {
 	GetOrders() ([]model.Order, error)
 	UpdateOrderStatus(ctx context.Context, order model.Order) error
 	GetUserBalance(ctx context.Context, userID int) (accrual, withdrawn float64, err error)
+	InsertWithdrawal(ctx context.Context, withdraw model.Withdrawal) (err error)
+	GetWithdrawals(ctx context.Context, userID int) ([]model.Withdrawal, error)
+	GetUserOrders(ctx context.Context, userID int) ([]model.Order, error)
 }
 
 type TokenManager interface {
@@ -43,6 +46,7 @@ type Service struct {
 
 var ErrInvalidOrder = errors.New("invalid order")
 var ErrOrderConflict = errors.New("order conflict")
+var ErrInsufficientPoints = errors.New("insufficient points")
 
 func NewService(repo Repositories, tokenManager TokenManager) *Service {
 	return &Service{repo: repo, tokenManager: tokenManager}
@@ -92,7 +96,7 @@ func (s Service) UserLogin(ctx context.Context, user model.UserCredentials) (str
 	return tokenString, tokenExpires, nil
 }
 
-func (s Service) OrderSave(ctx context.Context, claims model.Claims, orderNumber int) (string, error) {
+func (s Service) OrderSave(ctx context.Context, claims model.Claims, orderNumber int64) (string, error) {
 	if !luhn.Valid(orderNumber) {
 		return "", ErrInvalidOrder
 	}
@@ -218,4 +222,36 @@ func (s *Service) GetUserBalance(ctx context.Context, userID int) (current, with
 	}
 	current = accrual - withdrawn
 	return
+}
+
+func (s *Service) WriteOffPoints(ctx context.Context, claims model.Claims, withdrawRequest model.WithdrawRequest) (err error) {
+	if !luhn.Valid(withdrawRequest.Order) {
+		return ErrInvalidOrder
+	}
+	current, _, err := s.GetUserBalance(ctx, claims.UserID)
+	if err != nil {
+		return err
+	}
+	if current < withdrawRequest.Sum {
+		return ErrInsufficientPoints
+	}
+	withdrawal := model.Withdrawal{
+		UserID:      claims.UserID,
+		OrderNumber: withdrawRequest.Order,
+		Amount:      withdrawRequest.Sum,
+	}
+	err = s.repo.InsertWithdrawal(ctx, withdrawal)
+	if err != nil {
+		return err
+	}
+	return
+}
+
+func (s *Service) GetWithdrawals(ctx context.Context, claims model.Claims) (listWithdrawals []model.Withdrawal, err error) {
+	return s.repo.GetWithdrawals(ctx, claims.UserID)
+
+}
+
+func (s *Service) GetUserOrders(ctx context.Context, claims model.Claims) ([]model.Order, error) {
+	return s.repo.GetUserOrders(ctx, claims.UserID)
 }

@@ -179,9 +179,81 @@ func (s *Store) UpdateOrderStatus(ctx context.Context, order model.Order) error 
 
 func (s *Store) GetUserBalance(ctx context.Context, userID int) (accrual, withdrawn float64, err error) {
 	row := s.conn.QueryRowContext(ctx, "SELECT (SELECT COALESCE(SUM(accrual), 0) FROM orders WHERE user_id = $1 AND status = 'PROCESSED'), (SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE user_id = $1);", userID)
-	err = row.Scan(&accrual, withdrawn)
+	err = row.Scan(&accrual, &withdrawn)
 	if err != nil {
 		return
 	}
 	return
+}
+
+func (s *Store) GetUserOrders(ctx context.Context, userID int) ([]model.Order, error) {
+	listOrders := make([]model.Order, 0)
+	rows, err := s.conn.QueryContext(ctx, "SELECT order_number, status, accrual, uploaded_at FROM orders WHERE user_id = $1 ORDER BY uploaded_at DESC", userID)
+	if err != nil {
+		return []model.Order{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var order model.Order
+		err = rows.Scan(&order.OrderNumber, &order.Status, &order.Accrual, &order.UploadedAt)
+		if err != nil {
+			return []model.Order{}, err
+		}
+
+		listOrders = append(listOrders, order)
+	}
+	err = rows.Err()
+	if err != nil {
+		return []model.Order{}, err
+	}
+	return listOrders, nil
+}
+
+func (s *Store) InsertWithdrawal(ctx context.Context, withdraw model.Withdrawal) (err error) {
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, "INSERT INTO withdrawals (user_id, order_number, amount) VALUES ($1, $2, $3);")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, withdraw.UserID, withdraw.OrderNumber, withdraw.Amount)
+	if err != nil {
+		return fmt.Errorf("storage failed to add withdraw user_id %d order_number %d error: %w", withdraw.UserID, withdraw.OrderNumber, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("storage failed to commit transaction:  user_id %d order_number %d error: %w", withdraw.UserID, withdraw.OrderNumber, err)
+	}
+
+	return
+}
+
+func (s *Store) GetWithdrawals(ctx context.Context, userID int) ([]model.Withdrawal, error) {
+	listWithdrawal := make([]model.Withdrawal, 0)
+	rows, err := s.conn.QueryContext(ctx, "SELECT order_number, amount, processed_at FROM withdrawals WHERE user_id = $1 ORDER BY processed_at DESC", userID)
+	if err != nil {
+		return []model.Withdrawal{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var withdrawal model.Withdrawal
+		err = rows.Scan(&withdrawal.OrderNumber, &withdrawal.Amount, &withdrawal.ProcessedAt)
+		if err != nil {
+			return []model.Withdrawal{}, err
+		}
+
+		listWithdrawal = append(listWithdrawal, withdrawal)
+	}
+	err = rows.Err()
+	if err != nil {
+		return []model.Withdrawal{}, err
+	}
+	return listWithdrawal, nil
 }

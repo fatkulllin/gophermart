@@ -137,9 +137,10 @@ func (h *Handlers) LoadOrderNumber(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	orderNumber, err := strconv.Atoi(string(body))
+	orderNumber, err := strconv.ParseInt(strings.TrimSpace(string(body)), 10, 64)
 	if err != nil {
-		http.Error(res, "invalid order number", http.StatusBadGateway)
+		logger.Log.Error("invalid order number", zap.Error(err))
+		http.Error(res, "invalid order number", http.StatusInternalServerError)
 		return
 	}
 
@@ -166,6 +167,28 @@ func (h *Handlers) LoadOrderNumber(res http.ResponseWriter, req *http.Request) {
 
 }
 
+func (h *Handlers) GetUserOrders(res http.ResponseWriter, req *http.Request) {
+
+	claims, ok := req.Context().Value(contextkeys.UserContextKey).(model.Claims)
+
+	if !ok {
+		http.Error(res, "claims not found", http.StatusUnauthorized)
+		return
+	}
+	list, err := h.service.GetUserOrders(req.Context(), claims)
+	if err != nil {
+		http.Error(res, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if len(list) == 0 {
+		res.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(res).Encode(list)
+}
+
 func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
 
 	claims, ok := req.Context().Value(contextkeys.UserContextKey).(model.Claims)
@@ -189,4 +212,57 @@ func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(res).Encode(responseBalance)
 
+}
+
+func (h *Handlers) WriteOffPoints(res http.ResponseWriter, req *http.Request) {
+	claims, ok := req.Context().Value(contextkeys.UserContextKey).(model.Claims)
+
+	if !ok {
+		http.Error(res, "claims not found", http.StatusUnauthorized)
+		return
+	}
+	var withdraw model.WithdrawRequest
+
+	if err := json.NewDecoder(req.Body).Decode(&withdraw); err != nil {
+		http.Error(res, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	err := h.service.WriteOffPoints(req.Context(), claims, withdraw)
+
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidOrder) {
+			http.Error(res, "invalid order", http.StatusUnprocessableEntity)
+			return
+		}
+		if errors.Is(err, service.ErrInsufficientPoints) {
+			res.WriteHeader(http.StatusPaymentRequired)
+			return
+		}
+		http.Error(res, "internal error", http.StatusInternalServerError)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
+
+}
+
+func (h *Handlers) GetWriteOffPoints(res http.ResponseWriter, req *http.Request) {
+
+	claims, ok := req.Context().Value(contextkeys.UserContextKey).(model.Claims)
+
+	if !ok {
+		http.Error(res, "claims not found", http.StatusUnauthorized)
+		return
+	}
+	list, err := h.service.GetWithdrawals(req.Context(), claims)
+	if err != nil {
+		http.Error(res, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if len(list) == 0 {
+		res.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(res).Encode(list)
 }

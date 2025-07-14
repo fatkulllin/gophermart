@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -24,15 +25,28 @@ type Claims struct {
 }
 
 type Order struct {
-	UserID      int     `json:"id,omitempty"`
-	OrderNumber int64   `json:"order,string"`
-	Status      string  `json:"status"`
-	Accrual     float64 `json:"accrual"`
+	UserID      int       `json:"id,omitempty"`
+	OrderNumber int64     `json:"number,string"`
+	Status      string    `json:"status"`
+	Accrual     float64   `json:"accrual,omitempty"`
+	UploadedAt  time.Time `json:"uploaded_at"`
 }
 
 type UserBalance struct {
 	Current   float64 `json:"current"`
 	WithDrawn float64 `json:"withdraw"`
+}
+
+type WithdrawRequest struct {
+	Order int64   `json:"order,string"`
+	Sum   float64 `json:"sum"`
+}
+
+type Withdrawal struct {
+	UserID      int
+	OrderNumber int64     `json:"order,string"`
+	Amount      float64   `json:"sum"`
+	ProcessedAt time.Time `json:"processed_at"`
 }
 
 var ErrUserExists = errors.New("user already exists")
