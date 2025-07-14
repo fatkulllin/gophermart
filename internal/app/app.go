@@ -68,7 +68,7 @@ func (app *App) Run(ctx context.Context) error {
 		defer wg.Done()
 		app.worker.Start(ctx)
 	}()
-
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		if err := app.server.Start(ctx); err != nil {
