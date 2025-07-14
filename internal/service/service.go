@@ -30,7 +30,7 @@ type Repositories interface {
 }
 
 type TokenManager interface {
-	GenerateJWT(userId int, userLogin string) (string, int, error)
+	GenerateJWT(userID int, userLogin string) (string, int, error)
 	// ValidateJWT(token string) (string, error)
 }
 
