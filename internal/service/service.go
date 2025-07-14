@@ -23,8 +23,8 @@ type Repositories interface {
 	SaveOrder(ctx context.Context, user model.User, orderNumber int64) (model.Order, int64, error)
 	GetOrders() ([]model.Order, error)
 	UpdateOrderStatus(ctx context.Context, order model.AccrualOrderResponse) error
-	GetUserBalance(ctx context.Context, userID int) (accrual, withdrawn float64, err error)
-	InsertWithdrawal(ctx context.Context, withdraw model.Withdrawal) (err error)
+	GetUserBalance(ctx context.Context, userID int) (float64, float64, error)
+	InsertWithdrawal(ctx context.Context, withdraw model.Withdrawal) error
 	GetWithdrawals(ctx context.Context, userID int) ([]model.Withdrawal, error)
 	GetUserOrders(ctx context.Context, userID int) ([]model.Order, error)
 }
@@ -214,17 +214,17 @@ func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSyste
 	}
 }
 
-func (s *Service) GetUserBalance(ctx context.Context, userID int) (current, withdrawn float64, err error) {
+func (s *Service) GetUserBalance(ctx context.Context, userID int) (float64, float64, error) {
 	accrual, withdrawn, err := s.repo.GetUserBalance(ctx, userID)
 	if err != nil {
 		logger.Log.Error("failed get user balance from store ", zap.Error(err))
 		return 0, 0, fmt.Errorf("get user balance %w", err)
 	}
-	current = accrual - withdrawn
-	return
+	current := accrual - withdrawn
+	return current, withdrawn, nil
 }
 
-func (s *Service) WriteOffPoints(ctx context.Context, claims model.Claims, withdrawRequest model.WithdrawRequest) (err error) {
+func (s *Service) WriteOffPoints(ctx context.Context, claims model.Claims, withdrawRequest model.WithdrawRequest) error {
 	if !luhn.Valid(withdrawRequest.Order) {
 		return ErrInvalidOrder
 	}
@@ -244,10 +244,10 @@ func (s *Service) WriteOffPoints(ctx context.Context, claims model.Claims, withd
 	if err != nil {
 		return err
 	}
-	return
+	return nil
 }
 
-func (s *Service) GetWithdrawals(ctx context.Context, claims model.Claims) (listWithdrawals []model.Withdrawal, err error) {
+func (s *Service) GetWithdrawals(ctx context.Context, claims model.Claims) ([]model.Withdrawal, error) {
 	return s.repo.GetWithdrawals(ctx, claims.UserID)
 
 }

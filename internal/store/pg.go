@@ -180,13 +180,14 @@ func (s *Store) UpdateOrderStatus(ctx context.Context, order model.AccrualOrderR
 	return nil
 }
 
-func (s *Store) GetUserBalance(ctx context.Context, userID int) (accrual, withdrawn float64, err error) {
+func (s *Store) GetUserBalance(ctx context.Context, userID int) (float64, float64, error) {
 	row := s.conn.QueryRowContext(ctx, "SELECT (SELECT COALESCE(SUM(accrual), 0) FROM orders WHERE user_id = $1 AND status = 'PROCESSED'), (SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE user_id = $1);", userID)
-	err = row.Scan(&accrual, &withdrawn)
+	var accrual, withdrawn float64
+	err := row.Scan(&accrual, &withdrawn)
 	if err != nil {
-		return
+		return 0, 0, err
 	}
-	return
+	return accrual, withdrawn, nil
 }
 
 func (s *Store) GetUserOrders(ctx context.Context, userID int) ([]model.Order, error) {
@@ -212,16 +213,16 @@ func (s *Store) GetUserOrders(ctx context.Context, userID int) ([]model.Order, e
 	return listOrders, nil
 }
 
-func (s *Store) InsertWithdrawal(ctx context.Context, withdraw model.Withdrawal) (err error) {
+func (s *Store) InsertWithdrawal(ctx context.Context, withdraw model.Withdrawal) error {
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
-		return
+		return err
 	}
 	defer tx.Rollback()
 
 	stmt, err := tx.PrepareContext(ctx, "INSERT INTO withdrawals (user_id, order_number, amount) VALUES ($1, $2, $3);")
 	if err != nil {
-		return
+		return err
 	}
 	defer stmt.Close()
 
@@ -235,7 +236,7 @@ func (s *Store) InsertWithdrawal(ctx context.Context, withdraw model.Withdrawal)
 		return fmt.Errorf("storage failed to commit transaction:  user_id %d order_number %d error: %w", withdraw.UserID, withdraw.OrderNumber, err)
 	}
 
-	return
+	return nil
 }
 
 func (s *Store) GetWithdrawals(ctx context.Context, userID int) ([]model.Withdrawal, error) {
