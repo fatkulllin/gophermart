@@ -41,8 +41,8 @@ type AccrualOrderResponse struct {
 }
 
 type UserBalance struct {
-	Current   RoundedFloat `json:"current"`
-	WithDrawn RoundedFloat `json:"withdrawn"`
+	Current   float64 `json:"current"`
+	WithDrawn float64 `json:"withdrawn"`
 }
 
 type WithdrawRequest struct {
@@ -65,5 +65,5 @@ type RoundedFloat float64
 func (f RoundedFloat) MarshalJSON() ([]byte, error) {
 	rounded := math.Round(float64(f)*100) / 100
 	// важно: без кавычек, чтобы это было числом в JSON, а не строкой
-	return []byte(fmt.Sprintf("%.2f", rounded)), nil
+	return fmt.Appendf(nil, "%.2f", rounded), nil
 }

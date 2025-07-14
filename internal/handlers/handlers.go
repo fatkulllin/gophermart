@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -205,8 +206,8 @@ func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	responseBalance := model.UserBalance{
-		Current:   model.RoundedFloat(current),
-		WithDrawn: model.RoundedFloat(withdrawn),
+		Current:   math.Round(float64(current)*100) / 100,
+		WithDrawn: math.Round(float64(withdrawn)*100) / 100,
 	}
 
 	logger.Log.Debug("response user balancer", zap.Any("responseBalance", responseBalance))
