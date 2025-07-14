@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/fatkulllin/gophermart/internal/auth"
@@ -71,7 +72,7 @@ func (app *App) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := app.server.Start(ctx); err != nil {
+		if err := app.server.Start(ctx); err != nil && err != http.ErrServerClosed {
 			logger.Log.Error("server exited with error", zap.Error(err))
 			cancel()
 		}
