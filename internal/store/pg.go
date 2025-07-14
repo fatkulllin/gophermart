@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/fatkulllin/gophermart/internal/logger"
 	"github.com/fatkulllin/gophermart/internal/model"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+	"go.uber.org/zap"
 )
 
 type Store struct {
@@ -147,11 +149,12 @@ func (s *Store) GetOrders() ([]model.Order, error) {
 	if err != nil {
 		return nil, err
 	}
+	logger.Log.Debug("get orders new and PROCESSING", zap.Any("order", listOrderNumbersScan))
 	return listOrderNumbersScan, nil
 }
 
-func (s *Store) UpdateOrderStatus(ctx context.Context, order model.Order) error {
-
+func (s *Store) UpdateOrderStatus(ctx context.Context, order model.AccrualOrderResponse) error {
+	logger.Log.Debug("UpdateOrderStatus order", zap.Any("order", order))
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -164,14 +167,14 @@ func (s *Store) UpdateOrderStatus(ctx context.Context, order model.Order) error 
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, order.OrderNumber, order.Status, order.Accrual)
+	_, err = stmt.ExecContext(ctx, order.Order, order.Status, order.Accrual)
 	if err != nil {
-		return fmt.Errorf("storage failed to update status %s order %d error: %s", order.Status, order.OrderNumber, err)
+		return fmt.Errorf("storage failed to update status %s order %d error: %s", order.Status, order.Order, err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("storage failed to commit transaction: %d error: %s", order.OrderNumber, err)
+		return fmt.Errorf("storage failed to commit transaction: %v error: %s", order.Order, err)
 	}
 
 	return nil

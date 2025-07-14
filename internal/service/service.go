@@ -22,7 +22,7 @@ type Repositories interface {
 	GetUser(ctx context.Context, user model.UserCredentials) (model.User, error)
 	SaveOrder(ctx context.Context, user model.User, orderNumber int64) (model.Order, int64, error)
 	GetOrders() ([]model.Order, error)
-	UpdateOrderStatus(ctx context.Context, order model.Order) error
+	UpdateOrderStatus(ctx context.Context, order model.AccrualOrderResponse) error
 	GetUserBalance(ctx context.Context, userID int) (accrual, withdrawn float64, err error)
 	InsertWithdrawal(ctx context.Context, withdraw model.Withdrawal) (err error)
 	GetWithdrawals(ctx context.Context, userID int) ([]model.Withdrawal, error)
@@ -181,15 +181,15 @@ func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSyste
 				return
 			}
 
-			var result model.Order
+			var result model.AccrualOrderResponse
 			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-				logger.Log.Error("failed to decode accrual response", zap.Int64("order number", j.OrderNumber), zap.Error(err))
+				logger.Log.Error("failed to decode accrual response", zap.Int64("order number", result.Order), zap.Error(err))
 				return
 			}
 
 			logger.Log.Debug("order processed",
 				zap.Int("worker", id),
-				zap.Int64("order number", j.OrderNumber),
+				zap.Int64("order number", result.Order),
 				zap.String("status", result.Status),
 				zap.Float64p("accrual", result.Accrual))
 
@@ -197,17 +197,17 @@ func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSyste
 			case "PROCESSED":
 				err := s.repo.UpdateOrderStatus(ctx, result)
 				if err != nil {
-					logger.Log.Error("failed to update PROCESSED order", zap.Int64("order", j.OrderNumber), zap.Error(err))
+					logger.Log.Error("failed to update PROCESSED order", zap.Int64("order", result.Order), zap.Error(err))
 				}
 			case "INVALID":
 				err := s.repo.UpdateOrderStatus(ctx, result)
 				if err != nil {
-					logger.Log.Error("failed to update PROCESSED order", zap.Int64("order", j.OrderNumber), zap.Error(err))
+					logger.Log.Error("failed to update PROCESSED order", zap.Int64("order", result.Order), zap.Error(err))
 				}
 			case "PROCESSING", "REGISTERED":
-				logger.Log.Info("skip to update status order", zap.Int64("order", j.OrderNumber), zap.String("status", j.Status))
+				logger.Log.Info("skip to update status order", zap.Int64("order", result.Order), zap.String("status", result.Status))
 			default:
-				logger.Log.Warn("unknown order status", zap.String("status", result.Status), zap.Int64("order", j.OrderNumber))
+				logger.Log.Warn("unknown order status", zap.String("status", result.Status), zap.Int64("order", result.Order))
 			}
 
 		}(j)
