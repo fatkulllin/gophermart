@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -199,7 +200,8 @@ func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
 	}
 
 	current, withdrawn, err := h.service.GetUserBalance(req.Context(), claims.UserID)
-
+	current = math.Round(current*1e5) / 1e5
+	withdrawn = math.Round(withdrawn*1e5) / 1e5
 	if err != nil {
 		logger.Log.Error("failed get user", zap.String("user login", claims.UserLogin), zap.Error(err))
 		http.Error(res, "internal error", http.StatusInternalServerError)
