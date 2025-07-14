@@ -2,8 +2,6 @@ package model
 
 import (
 	"errors"
-	"fmt"
-	"math"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -59,11 +57,3 @@ type Withdrawal struct {
 
 var ErrUserExists = errors.New("user already exists")
 var ErrIncorrectPassword = errors.New("incorrect password")
-
-type RoundedFloat float64
-
-func (f RoundedFloat) MarshalJSON() ([]byte, error) {
-	rounded := math.Round(float64(f)*100) / 100
-	// важно: без кавычек, чтобы это было числом в JSON, а не строкой
-	return fmt.Appendf(nil, "%.2f", rounded), nil
-}
