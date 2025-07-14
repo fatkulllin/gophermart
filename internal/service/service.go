@@ -191,7 +191,7 @@ func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSyste
 				zap.Int("worker", id),
 				zap.Int64("order number", j.OrderNumber),
 				zap.String("status", result.Status),
-				zap.Float64("accrual", result.Accrual))
+				zap.Float64p("accrual", result.Accrual))
 
 			switch result.Status {
 			case "PROCESSED":
