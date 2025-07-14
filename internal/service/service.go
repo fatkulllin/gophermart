@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -220,7 +221,9 @@ func (s *Service) GetUserBalance(ctx context.Context, userID int) (float64, floa
 		logger.Log.Error("failed get user balance from store ", zap.Error(err))
 		return 0, 0, fmt.Errorf("get user balance %w", err)
 	}
+
 	current := accrual - withdrawn
+	current = math.Round(current*1e5) / 1e5
 	return current, withdrawn, nil
 }
 
