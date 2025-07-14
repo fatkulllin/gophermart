@@ -33,7 +33,7 @@ func NewServer(cfg *config.Config, handlers *handlers.Handlers) *Server {
 		r.Get("/api/user/orders", handlers.GetUserOrders)
 		r.Get("/api/user/balance", handlers.GetUserBalance)
 		r.Post("/api/user/balance/withdraw", handlers.WriteOffPoints)
-		r.Get("GET /api/user/withdrawals", handlers.GetWriteOffPoints)
+		r.Get("/api/user/withdrawals", handlers.GetWriteOffPoints)
 		r.Get("/debug", handlers.Debug)
 	})
 	return &Server{
