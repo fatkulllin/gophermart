@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/fatkulllin/gophermart/internal/auth"
 	"github.com/fatkulllin/gophermart/internal/config"
@@ -13,38 +14,43 @@ import (
 )
 
 type Server struct {
-	config   *config.Config
-	handlers *handlers.Handlers
+	config     *config.Config
+	httpServer *http.Server
 }
 
 func NewServer(cfg *config.Config, handlers *handlers.Handlers) *Server {
-	return &Server{
-		config:   cfg,
-		handlers: handlers,
-	}
-}
-
-func (server *Server) Start() error {
-
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
 
-	r.Post("/api/user/register", server.handlers.UserRegister)
-	r.Post("/api/user/login", server.handlers.UserLogin)
+	r.Post("/api/user/register", handlers.UserRegister)
+	r.Post("/api/user/login", handlers.UserLogin)
 	r.Group(func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(server.config.JWTSecret))
-		r.Post("/api/user/orders", server.handlers.LoadOrderNumber)
-		r.Get("/api/user/orders", server.handlers.GetUserOrders)
-		r.Get("/api/user/balance", server.handlers.GetUserBalance)
-		r.Post("/api/user/balance/withdraw", server.handlers.WriteOffPoints)
-		r.Get("/api/user/withdraw", server.handlers.GetWriteOffPoints)
-		r.Get("/debug", server.handlers.Debug)
+		r.Use(auth.AuthMiddleware(cfg.JWTSecret))
+		r.Post("/api/user/orders", handlers.LoadOrderNumber)
+		r.Get("/api/user/orders", handlers.GetUserOrders)
+		r.Get("/api/user/balance", handlers.GetUserBalance)
+		r.Post("/api/user/balance/withdraw", handlers.WriteOffPoints)
+		r.Get("/api/user/withdraw", handlers.GetWriteOffPoints)
+		r.Get("/debug", handlers.Debug)
 	})
+	return &Server{
+		config: cfg,
+		httpServer: &http.Server{
+			Addr:         cfg.Address,
+			Handler:      r,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
+			IdleTimeout:  120 * time.Second,
+		},
+	}
+}
 
-	logger.Log.Info("Server started on", zap.String("server", server.config.Address))
+func (server *Server) Start() error {
 
-	return http.ListenAndServe(server.config.Address, r)
+	logger.Log.Info("Server started on", zap.String("server", server.httpServer.Addr))
+
+	return server.httpServer.ListenAndServe()
 
 }
