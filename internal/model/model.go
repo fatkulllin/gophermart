@@ -42,7 +42,7 @@ type AccrualOrderResponse struct {
 
 type UserBalance struct {
 	Current   RoundedFloat `json:"current"`
-	WithDrawn RoundedFloat `json:"withdraw"`
+	WithDrawn RoundedFloat `json:"withdrawn"`
 }
 
 type WithdrawRequest struct {
