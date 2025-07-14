@@ -188,11 +188,6 @@ func (h *Handlers) GetUserOrders(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(res).Encode(list)
 }
-func roundTo2(f float64) float64 {
-	s := strconv.FormatFloat(f, 'f', 2, 64) // строго 2 знака
-	rounded, _ := strconv.ParseFloat(s, 64) // обратно в float64
-	return rounded
-}
 
 func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
 
@@ -204,17 +199,16 @@ func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
 	}
 
 	current, withdrawn, err := h.service.GetUserBalance(req.Context(), claims.UserID)
-	current = roundTo2(current)
-	withdrawn = roundTo2(withdrawn)
 	if err != nil {
 		logger.Log.Error("failed get user", zap.String("user login", claims.UserLogin), zap.Error(err))
 		http.Error(res, "internal error", http.StatusInternalServerError)
 		return
 	}
 	responseBalance := model.UserBalance{
-		Current:   current,
-		WithDrawn: withdrawn,
+		Current:   model.RoundedFloat(current),
+		WithDrawn: model.RoundedFloat(withdrawn),
 	}
+
 	logger.Log.Debug("response user balancer", zap.Any("responseBalance", responseBalance))
 	res.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(res).Encode(responseBalance)
