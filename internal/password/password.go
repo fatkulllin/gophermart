@@ -48,7 +48,7 @@ func (pass *Password) Hash(password string) (string, error) {
 }
 
 // Compare compares a given password to an existing scrypt password hash
-func (c *Password) Compare(hash string, password string) (bool, error) {
+func (pass *Password) Compare(hash string, password string) (bool, error) {
 	var n, r, p int
 	var alg, originalHash, salt string
 
