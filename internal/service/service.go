@@ -17,7 +17,8 @@ import (
 )
 
 type Repositories interface {
-	SaveUser(ctx context.Context, user model.UserCredentials) (int, error)
+	ExistUser(ctx context.Context, user model.UserCredentials) (bool, error)
+	CreateUser(ctx context.Context, user model.UserCredentials) (int, error)
 	GetUser(ctx context.Context, user model.UserCredentials) (model.User, error)
 	SaveOrder(ctx context.Context, user model.User, orderNumber int64) (model.Order, int64, error)
 	GetOrders() ([]model.Order, error)
@@ -52,13 +53,22 @@ func NewService(repo Repositories, tokenManager TokenManager, password Password)
 }
 
 func (s Service) UserRegister(ctx context.Context, user model.UserCredentials) (string, int, error) {
+	userExists, err := s.repo.ExistUser(ctx, user)
+	if err != nil {
+		return "", 0, err
+	}
+
+	if userExists {
+		return "", 0, model.ErrUserExists
+	}
+
 	hashPassword, err := s.password.Hash(user.Password)
 	if err != nil {
 		return "", 0, fmt.Errorf("hash password: %w", err)
 	}
 	user.Password = hashPassword
 
-	userID, err := s.repo.SaveUser(ctx, user)
+	userID, err := s.repo.CreateUser(ctx, user)
 	if err != nil {
 		return "", 0, err
 	}
