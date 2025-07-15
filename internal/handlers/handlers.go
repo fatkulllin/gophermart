@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -17,12 +18,24 @@ import (
 	"go.uber.org/zap"
 )
 
+type Service interface {
+	UserRegister(ctx context.Context, user model.UserCredentials) (string, int, error)
+	UserLogin(ctx context.Context, user model.UserCredentials) (string, int, error)
+	OrderSave(ctx context.Context, claims model.Claims, orderNumber int64) (string, error)
+	GetOrdersProcessing(jobs chan<- model.Order) error
+	OrdersProcessing(id int, jobs <-chan model.Order, accrualSystemAddress string)
+	GetUserBalance(ctx context.Context, userID int) (float64, float64, error)
+	WriteOffPoints(ctx context.Context, claims model.Claims, withdrawRequest model.WithdrawRequest) error
+	GetWithdrawals(ctx context.Context, claims model.Claims) ([]model.Withdrawal, error)
+	GetUserOrders(ctx context.Context, claims model.Claims) ([]model.Order, error)
+}
+
 type Handlers struct {
-	service  *service.Service
+	service  Service
 	validate *validator.Validate
 }
 
-func NewHandlers(service *service.Service) *Handlers {
+func NewHandlers(service Service) *Handlers {
 	return &Handlers{service: service, validate: validator.New()}
 }
 
