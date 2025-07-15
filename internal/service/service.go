@@ -13,7 +13,6 @@ import (
 	"github.com/fatkulllin/gophermart/internal/logger"
 	"github.com/fatkulllin/gophermart/internal/luhn"
 	"github.com/fatkulllin/gophermart/internal/model"
-	"github.com/fatkulllin/gophermart/internal/password"
 	"go.uber.org/zap"
 )
 
@@ -31,29 +30,29 @@ type Repositories interface {
 
 type TokenManager interface {
 	GenerateJWT(userID int, userLogin string) (string, int, error)
-	// ValidateJWT(token string) (string, error)
 }
 
-// type Password interface {
-// 	Hash(userId int, userLogin string) (string, error)
-// }
+type Password interface {
+	Hash(password string) (string, error)
+	Compare(hash string, password string) (bool, error)
+}
 
 type Service struct {
 	repo         Repositories
 	tokenManager TokenManager
-	// password     Password
+	password     Password
 }
 
 var ErrInvalidOrder = errors.New("invalid order")
 var ErrOrderConflict = errors.New("order conflict")
 var ErrInsufficientPoints = errors.New("insufficient points")
 
-func NewService(repo Repositories, tokenManager TokenManager) *Service {
-	return &Service{repo: repo, tokenManager: tokenManager}
+func NewService(repo Repositories, tokenManager TokenManager, password Password) *Service {
+	return &Service{repo: repo, tokenManager: tokenManager, password: password}
 }
 
 func (s Service) UserRegister(ctx context.Context, user model.UserCredentials) (string, int, error) {
-	hashPassword, err := password.Hash(user.Password)
+	hashPassword, err := s.password.Hash(user.Password)
 	if err != nil {
 		return "", 0, fmt.Errorf("hash password: %w", err)
 	}
@@ -77,7 +76,7 @@ func (s Service) UserLogin(ctx context.Context, user model.UserCredentials) (str
 	if err != nil {
 		return "", 0, err
 	}
-	resultPassword, err := password.Compare(getUser.PasswordHash, user.Password)
+	resultPassword, err := s.password.Compare(getUser.PasswordHash, user.Password)
 
 	if err != nil {
 		return "", 0, err

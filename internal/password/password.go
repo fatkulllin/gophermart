@@ -21,7 +21,13 @@ const (
 
 var errInvalidPasswordHash = errors.New("password hash does not have the correct format")
 
-func Hash(password string) (string, error) {
+type Password struct{}
+
+func NewPassword() *Password {
+	return &Password{}
+}
+
+func (pass *Password) Hash(password string) (string, error) {
 	// Generate salt
 	salt := make([]byte, SaltByteSize)
 	if _, err := rand.Read(salt); err != nil {
@@ -42,7 +48,7 @@ func Hash(password string) (string, error) {
 }
 
 // Compare compares a given password to an existing scrypt password hash
-func Compare(hash string, password string) (bool, error) {
+func (c *Password) Compare(hash string, password string) (bool, error) {
 	var n, r, p int
 	var alg, originalHash, salt string
 

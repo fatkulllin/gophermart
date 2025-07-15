@@ -10,6 +10,7 @@ import (
 	"github.com/fatkulllin/gophermart/internal/config"
 	"github.com/fatkulllin/gophermart/internal/handlers"
 	"github.com/fatkulllin/gophermart/internal/logger"
+	"github.com/fatkulllin/gophermart/internal/password"
 	"github.com/fatkulllin/gophermart/internal/server"
 	"github.com/fatkulllin/gophermart/internal/service"
 	pg "github.com/fatkulllin/gophermart/internal/store"
@@ -46,7 +47,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 	logger.Log.Debug("init jwt manager successfully")
 
-	service := service.NewService(store, tokenManager)
+	password := password.NewPassword()
+
+	service := service.NewService(store, tokenManager, password)
 	handlers := handlers.NewHandlers(service)
 	server := server.NewServer(cfg, handlers)
 	worker := worker.NewWorker(cfg, service)
