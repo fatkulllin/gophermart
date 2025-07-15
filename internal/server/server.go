@@ -19,7 +19,7 @@ type Server struct {
 	httpServer *http.Server
 }
 
-func NewServer(cfg *config.Config, handlers *handlers.Handlers) *Server {
+func NewRouter(cfg *config.Config, handlers *handlers.Handlers) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -36,11 +36,16 @@ func NewServer(cfg *config.Config, handlers *handlers.Handlers) *Server {
 		r.Get("/api/user/withdrawals", handlers.GetWriteOffPoints)
 		r.Get("/debug", handlers.Debug)
 	})
+	return r
+}
+
+func NewServer(cfg *config.Config, handlers *handlers.Handlers) *Server {
+	router := NewRouter(cfg, handlers)
 	return &Server{
 		config: cfg,
 		httpServer: &http.Server{
 			Addr:         cfg.Address,
-			Handler:      r,
+			Handler:      router,
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 10 * time.Second,
 			IdleTimeout:  120 * time.Second,
