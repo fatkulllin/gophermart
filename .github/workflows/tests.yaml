@@ -54,4 +54,4 @@ jobs:
         env:
           DATABASE_URI: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
         run: |
-          go test -v ./test/integration
+          go test -v ./test/

@@ -165,7 +165,11 @@ func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSyste
 				return
 			}
 
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					logger.Log.Warn("failed to close response body", zap.Error(err))
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNoContent {
 				logger.Log.Info("order is not registred", zap.Int64("order number:", j.OrderNumber))

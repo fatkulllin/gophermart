@@ -28,7 +28,7 @@ func TestUserRegister_RealDB(t *testing.T) {
 		JWTSecret: "integration-secret",
 	}
 	err := env.Parse(&cfg)
-
+	require.NoError(t, err, "failed to connect to DB")
 	store, err := pg.NewStore(cfg.Database)
 	require.NoError(t, err, "failed to connect to DB")
 
@@ -64,8 +64,11 @@ func TestUserRegister_RealDB(t *testing.T) {
 
 	resp, err := http.Post("http://localhost:8081/api/user/register", "application/json", bytes.NewBuffer(jsonData))
 	require.NoError(t, err, "register request failed")
-	defer resp.Body.Close()
 
+	defer func() {
+		err := resp.Body.Close()
+		require.NoError(t, err)
+	}()
 	respData, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	t.Logf("response: %d, body: %s", resp.StatusCode, string(respData))

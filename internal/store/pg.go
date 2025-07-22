@@ -66,7 +66,12 @@ func (s *Store) CreateUser(ctx context.Context, user model.UserCredentials) (int
 	if err != nil {
 		return 0, fmt.Errorf("pg failed start transaction: %w", err)
 	}
-	defer tx.Rollback()
+
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			logger.Log.Warn("failed to rollback transaction", zap.Error(err))
+		}
+	}()
 
 	var id int
 
@@ -110,7 +115,12 @@ func (s *Store) SaveOrder(ctx context.Context, user model.User, orderNumber int6
 			if err != nil {
 				return founderOrder, 0, fmt.Errorf("pg failed start transaction: %w", err)
 			}
-			defer tx.Rollback()
+
+			defer func() {
+				if err := tx.Rollback(); err != nil {
+					logger.Log.Warn("failed to rollback transaction", zap.Error(err))
+				}
+			}()
 
 			resultInsert, err := tx.ExecContext(ctx, "INSERT INTO orders (user_id, order_number, status) VALUES ($1, $2, $3);", user.ID, orderNumber, "NEW")
 
@@ -141,7 +151,13 @@ func (s *Store) GetOrders() ([]model.Order, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			logger.Log.Warn("failed to close result rows after SELECT orders", zap.Error(err))
+		}
+	}()
+
 	for rows.Next() {
 		var order model.Order
 		err = rows.Scan(&order.OrderNumber, &order.Status)
@@ -165,13 +181,23 @@ func (s *Store) UpdateOrderStatus(ctx context.Context, order model.AccrualOrderR
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			logger.Log.Warn("failed to rollback transaction", zap.Error(err))
+		}
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, "UPDATE orders SET status = $2, accrual = $3 WHERE order_number = $1;")
+
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+
+	defer func() {
+		if err := stmt.Close(); err != nil {
+			logger.Log.Warn("failed to close statement", zap.Error(err))
+		}
+	}()
 
 	_, err = stmt.ExecContext(ctx, order.Order, order.Status, order.Accrual)
 	if err != nil {
@@ -202,7 +228,13 @@ func (s *Store) GetUserOrders(ctx context.Context, userID int) ([]model.Order, e
 	if err != nil {
 		return []model.Order{}, err
 	}
-	defer rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			logger.Log.Warn("failed to close result rows after SELECT user orders", zap.Error(err))
+		}
+	}()
+
 	for rows.Next() {
 		var order model.Order
 		err = rows.Scan(&order.OrderNumber, &order.Status, &order.Accrual, &order.UploadedAt)
@@ -224,13 +256,22 @@ func (s *Store) InsertWithdrawal(ctx context.Context, withdraw model.Withdrawal)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			logger.Log.Warn("failed to rollback transaction", zap.Error(err))
+		}
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, "INSERT INTO withdrawals (user_id, order_number, amount) VALUES ($1, $2, $3);")
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+
+	defer func() {
+		if err := stmt.Close(); err != nil {
+			logger.Log.Warn("failed to close statement", zap.Error(err))
+		}
+	}()
 
 	_, err = stmt.ExecContext(ctx, withdraw.UserID, withdraw.OrderNumber, withdraw.Amount)
 	if err != nil {
@@ -251,7 +292,13 @@ func (s *Store) GetWithdrawals(ctx context.Context, userID int) ([]model.Withdra
 	if err != nil {
 		return []model.Withdrawal{}, err
 	}
-	defer rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			logger.Log.Warn("failed to close result rows after SELECT withdrawals", zap.Error(err))
+		}
+	}()
+
 	for rows.Next() {
 		var withdrawal model.Withdrawal
 		err = rows.Scan(&withdrawal.OrderNumber, &withdrawal.Amount, &withdrawal.ProcessedAt)
