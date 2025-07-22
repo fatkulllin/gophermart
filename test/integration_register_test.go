@@ -27,8 +27,10 @@ func TestUserRegister_RealDB(t *testing.T) {
 		Database:  "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable",
 		JWTSecret: "integration-secret",
 	}
-	err := env.Parse(&cfg)
-	require.NoError(t, err, "failed to connect to DB")
+	err := env.Parse(cfg)
+
+	require.NoError(t, err, "failed parse env")
+
 	store, err := pg.NewStore(cfg.Database)
 	require.NoError(t, err, "failed to connect to DB")
 
