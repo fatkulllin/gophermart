@@ -60,7 +60,7 @@ func (h *Handlers) UserRegister(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 		logger.Log.Error("save user", zap.Error(err))
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 	cookie := &http.Cookie{
@@ -77,7 +77,10 @@ func (h *Handlers) UserRegister(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", http.DetectContentType(body))
 	res.WriteHeader(http.StatusOK)
-	res.Write(body)
+	_, err = res.Write(body)
+	if err != nil {
+		logger.Log.Error("failed to write response", zap.Error(err))
+	}
 }
 
 func (h *Handlers) UserLogin(res http.ResponseWriter, req *http.Request) {
@@ -96,11 +99,11 @@ func (h *Handlers) UserLogin(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if errors.Is(err, model.ErrIncorrectPassword) {
 			logger.Log.Warn("attempt to login incorrect password", zap.String("login", user.Login))
-			http.Error(res, err.Error(), http.StatusUnauthorized)
+			http.Error(res, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 		logger.Log.Error("login user", zap.String("login", user.Login), zap.Error(err))
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(res, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	cookie := &http.Cookie{
@@ -117,7 +120,10 @@ func (h *Handlers) UserLogin(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", http.DetectContentType(body))
 	res.WriteHeader(http.StatusOK)
-	res.Write(body)
+	_, err = res.Write(body)
+	if err != nil {
+		logger.Log.Error("failed to write response", zap.Error(err))
+	}
 
 }
 
@@ -127,7 +133,10 @@ func (h *Handlers) Debug(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", http.DetectContentType(body))
 	res.WriteHeader(http.StatusOK)
-	res.Write(body)
+	_, err := res.Write(body)
+	if err != nil {
+		logger.Log.Error("failed to write response", zap.Error(err))
+	}
 
 }
 
@@ -200,7 +209,11 @@ func (h *Handlers) GetUserOrders(res http.ResponseWriter, req *http.Request) {
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(res).Encode(list)
+	err = json.NewEncoder(res).Encode(list)
+	if err != nil {
+		logger.Log.Error("failed to write response json", zap.Error(err))
+		http.Error(res, "internal server error", http.StatusInternalServerError)
+	}
 }
 
 func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
@@ -225,7 +238,11 @@ func (h *Handlers) GetUserBalance(res http.ResponseWriter, req *http.Request) {
 
 	logger.Log.Debug("response user balancer", zap.Any("responseBalance", responseBalance))
 	res.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(res).Encode(responseBalance)
+	err = json.NewEncoder(res).Encode(responseBalance)
+	if err != nil {
+		logger.Log.Error("failed to write response json", zap.Error(err))
+		http.Error(res, "internal server error", http.StatusInternalServerError)
+	}
 
 }
 
@@ -279,5 +296,9 @@ func (h *Handlers) GetWriteOffPoints(res http.ResponseWriter, req *http.Request)
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(res).Encode(list)
+	err = json.NewEncoder(res).Encode(list)
+	if err != nil {
+		logger.Log.Error("failed to write response json", zap.Error(err))
+		http.Error(res, "internal server error", http.StatusInternalServerError)
+	}
 }
