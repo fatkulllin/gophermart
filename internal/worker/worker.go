@@ -17,7 +17,7 @@ type Worker struct {
 
 type OrdersProcessing interface {
 	GetOrdersProcessing(jobs chan<- model.Order) error
-	OrdersProcessing(id int, jobs <-chan model.Order, accrualSystemAddress string)
+	OrdersProcessing(id int, jobs <-chan model.Order)
 }
 
 func NewWorker(cfg *config.Config, service OrdersProcessing) *Worker {
@@ -32,7 +32,7 @@ func (w *Worker) Start(ctx context.Context) {
 
 	workerCount := w.config.WorkerCount
 	for i := range workerCount {
-		go w.service.OrdersProcessing(i, jobs, w.config.AccrualSystemAddress)
+		go w.service.OrdersProcessing(i, jobs)
 	}
 
 	pollInterval := time.NewTicker(time.Duration(w.config.PollInterval) * time.Second)
@@ -43,7 +43,7 @@ func (w *Worker) Start(ctx context.Context) {
 		case <-ctx.Done():
 			logger.Log.Info("worker shutdown")
 			return
-		case <-time.After(1 * time.Second):
+		case <-pollInterval.C:
 			if err := w.service.GetOrdersProcessing(jobs); err != nil {
 				logger.Log.Error("failed processing orders", zap.Error(err))
 			}

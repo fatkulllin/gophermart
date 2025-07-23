@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/fatkulllin/gophermart/internal/accrual"
 	"github.com/fatkulllin/gophermart/internal/auth"
 	"github.com/fatkulllin/gophermart/internal/config"
 	"github.com/fatkulllin/gophermart/internal/handlers"
@@ -49,7 +50,12 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 	password := password.NewPassword()
 
-	service := service.NewService(store, tokenManager, password)
+	accrual, err := accrual.NewAccrualClient(cfg.AccrualSystemAddress)
+	if err != nil {
+		logger.Log.Fatal("invalid accrual system address", zap.Error(err), zap.String("address", cfg.AccrualSystemAddress))
+	}
+
+	service := service.NewService(store, tokenManager, password, accrual)
 	authHandler := handlers.NewAuthHandler(service)
 	orderHandler := handlers.NewOrderHandler(service)
 	balanceHandler := handlers.NewBalanceHandler(service)

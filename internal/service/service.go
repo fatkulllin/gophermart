@@ -2,12 +2,9 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/fatkulllin/gophermart/internal/logger"
@@ -29,6 +26,10 @@ type Repositories interface {
 	GetUserOrders(ctx context.Context, userID int) ([]model.Order, error)
 }
 
+type AccrualClient interface {
+	GetOrder(ctx context.Context, orderNumber int64) (model.AccrualOrderResponse, int, int, error)
+}
+
 type TokenManager interface {
 	GenerateJWT(userID int, userLogin string) (string, int, error)
 }
@@ -42,14 +43,15 @@ type Service struct {
 	repo         Repositories
 	tokenManager TokenManager
 	password     Password
+	accrual      AccrualClient
 }
 
 var ErrInvalidOrder = errors.New("invalid order")
 var ErrOrderConflict = errors.New("order conflict")
 var ErrInsufficientPoints = errors.New("insufficient points")
 
-func NewService(repo Repositories, tokenManager TokenManager, password Password) *Service {
-	return &Service{repo: repo, tokenManager: tokenManager, password: password}
+func NewService(repo Repositories, tokenManager TokenManager, password Password, accrual AccrualClient) *Service {
+	return &Service{repo: repo, tokenManager: tokenManager, password: password, accrual: accrual}
 }
 
 func (s Service) UserRegister(ctx context.Context, user model.UserCredentials) (string, int, error) {
@@ -138,90 +140,53 @@ func (s *Service) GetOrdersProcessing(jobs chan<- model.Order) error {
 	return nil
 }
 
-func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSystemAddress string) {
-	endpoint, err := url.Parse(accrualSystemAddress)
-	if err != nil {
-		logger.Log.Error("invalid accrual system address", zap.Error(err), zap.String("address", accrualSystemAddress))
-	}
-
-	client := &http.Client{}
+func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order) {
 
 	for j := range jobs {
 		func(j model.Order) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			endpoint.Path = fmt.Sprintf("/api/orders/%d", j.OrderNumber)
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+			result, status, retryAfter, err := s.accrual.GetOrder(ctx, j.OrderNumber)
+
 			if err != nil {
-				logger.Log.Error("failed to create request", zap.Error(err), zap.Int64("order", j.OrderNumber))
+				logger.Log.Error("accrual request failed", zap.Int64("order", j.OrderNumber), zap.Error(err))
 				return
 			}
 
-			resp, err := client.Do(req)
-			if err != nil {
-				logger.Log.Error("request failed", zap.Error(err), zap.Int64("order", j.OrderNumber))
+			switch status {
+			case http.StatusNoContent:
+				logger.Log.Info("order not registered", zap.Int64("order", j.OrderNumber))
 				return
-			}
-
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					logger.Log.Warn("failed to close response body", zap.Error(err))
-				}
-			}()
-
-			if resp.StatusCode == http.StatusNoContent {
-				logger.Log.Info("order is not registred", zap.Int64("order number:", j.OrderNumber))
-				return
-			}
-
-			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter, err := strconv.Atoi(resp.Header.Get("Retry-After"))
-				if err != nil {
-					logger.Log.Error("failed parse header Retry-After", zap.Int64("order number", j.OrderNumber), zap.Error(err))
+			case http.StatusTooManyRequests:
+				if retryAfter <= 0 {
+					retryAfter = 1
 				}
 				logger.Log.Warn("rate limited", zap.Int("retry after (sec)", retryAfter))
 				time.Sleep(time.Duration(retryAfter) * time.Second)
 				return
-
-			}
-
-			if resp.StatusCode != http.StatusOK {
-				logger.Log.Error("unexpected status code",
-					zap.Int64("order", j.OrderNumber),
-					zap.Int("status", resp.StatusCode))
+			case http.StatusOK:
+				logger.Log.Debug("order processed",
+					zap.Int("worker", id),
+					zap.Int64("order", result.Order),
+					zap.String("status", result.Status),
+					zap.Float64p("accrual", result.Accrual))
+			default:
+				logger.Log.Error("unexpected status from accrual", zap.Int64("order", j.OrderNumber), zap.Int("status", status))
 				return
 			}
-
-			var result model.AccrualOrderResponse
-			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-				logger.Log.Error("failed to decode accrual response", zap.Int64("order number", result.Order), zap.Error(err))
-				return
-			}
-
-			logger.Log.Debug("order processed",
-				zap.Int("worker", id),
-				zap.Int64("order number", result.Order),
-				zap.String("status", result.Status),
-				zap.Float64p("accrual", result.Accrual))
 
 			switch result.Status {
-			case "PROCESSED":
-				err := s.repo.UpdateOrderStatus(ctx, result)
-				if err != nil {
-					logger.Log.Error("failed to update PROCESSED order", zap.Int64("order", result.Order), zap.Error(err))
-				}
-			case "INVALID":
+			case "PROCESSED", "INVALID":
 				err := s.repo.UpdateOrderStatus(ctx, result)
 				if err != nil {
 					logger.Log.Error("failed to update PROCESSED order", zap.Int64("order", result.Order), zap.Error(err))
 				}
 			case "PROCESSING", "REGISTERED":
-				logger.Log.Info("skip to update status order", zap.Int64("order", result.Order), zap.String("status", result.Status))
+				logger.Log.Info("order still in progress; skipping update", zap.Int64("order", result.Order), zap.String("status", result.Status))
 			default:
 				logger.Log.Warn("unknown order status", zap.String("status", result.Status), zap.Int64("order", result.Order))
 			}
-
 		}(j)
 	}
 }

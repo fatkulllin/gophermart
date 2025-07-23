@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/env"
+	"github.com/fatkulllin/gophermart/internal/accrual"
 	"github.com/fatkulllin/gophermart/internal/auth"
 	"github.com/fatkulllin/gophermart/internal/config"
 	"github.com/fatkulllin/gophermart/internal/handlers"
@@ -40,8 +41,10 @@ func TestUserRegister_RealDB(t *testing.T) {
 	tokenManager := auth.NewJWTManager(cfg.JWTSecret, cfg.JWTExpires)
 
 	password := password.NewPassword()
+	accrual, err := accrual.NewAccrualClient(cfg.AccrualSystemAddress)
+	require.NoError(t, err, "failed start accrual client")
 
-	service := service.NewService(store, tokenManager, password)
+	service := service.NewService(store, tokenManager, password, accrual)
 	authHandler := handlers.NewAuthHandler(service)
 	orderHandler := handlers.NewOrderHandler(service)
 	balanceHandler := handlers.NewBalanceHandler(service)
