@@ -19,6 +19,8 @@ type Server struct {
 	httpServer *http.Server
 }
 
+// NewRouter создаёт и настраивает HTTP-роутер с хендлерами и middleware.
+// Использует chi.Router и возвращает готовый маршрутизатор.
 func NewRouter(cfg *config.Config, authHandler *handlers.AuthHandler, orderHandeler *handlers.OrderHandler, balanceHandler *handlers.BalanceHandler, debugHandler *handlers.DebugHandler) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

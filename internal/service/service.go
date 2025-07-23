@@ -140,14 +140,22 @@ func (s *Service) GetOrdersProcessing(jobs chan<- model.Order) error {
 	return nil
 }
 
-func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order) {
+func (s *Service) OrdersProcessing(ctx context.Context, id int, jobs <-chan model.Order) {
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Log.Info("worker context cancelled", zap.Int("worker", id))
+			return
+		case j, ok := <-jobs:
+			if !ok {
+				logger.Log.Info("jobs channel closed", zap.Int("worker", id))
+				return
+			}
 
-	for j := range jobs {
-		func(j model.Order) {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			orderCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
 
-			result, status, retryAfter, err := s.accrual.GetOrder(ctx, j.OrderNumber)
+			result, status, retryAfter, err := s.accrual.GetOrder(orderCtx, j.OrderNumber)
 
 			if err != nil {
 				logger.Log.Error("accrual request failed", zap.Int64("order", j.OrderNumber), zap.Error(err))
@@ -178,7 +186,7 @@ func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order) {
 
 			switch result.Status {
 			case "PROCESSED", "INVALID":
-				err := s.repo.UpdateOrderStatus(ctx, result)
+				err := s.repo.UpdateOrderStatus(orderCtx, result)
 				if err != nil {
 					logger.Log.Error("failed to update PROCESSED order", zap.Int64("order", result.Order), zap.Error(err))
 				}
@@ -187,7 +195,7 @@ func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order) {
 			default:
 				logger.Log.Warn("unknown order status", zap.String("status", result.Status), zap.Int64("order", result.Order))
 			}
-		}(j)
+		}
 	}
 }
 

@@ -26,6 +26,26 @@ func NewAuthHandler(service AuthService) *AuthHandler {
 	return &AuthHandler{service: service, validate: validator.New()}
 }
 
+func writeAuthSuccessResponse(res http.ResponseWriter, token string, expires int) {
+	cookie := &http.Cookie{
+		Name:     "auth_token",
+		Value:    token,
+		HttpOnly: true,  // чтобы JS не мог читать cookie (защита от XSS)
+		Secure:   false, // true если HTTPS
+		Path:     "/",
+		MaxAge:   3600 * expires, // время жизни cookie
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(res, cookie)
+
+	body := []byte("OK")
+	res.Header().Set("Content-Type", http.DetectContentType(body))
+	res.WriteHeader(http.StatusOK)
+	if _, err := res.Write(body); err != nil {
+		logger.Log.Error("failed to write response", zap.Error(err))
+	}
+}
+
 func (h *AuthHandler) UserRegister(res http.ResponseWriter, req *http.Request) {
 	var user model.UserCredentials
 
@@ -50,24 +70,7 @@ func (h *AuthHandler) UserRegister(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	cookie := &http.Cookie{
-		Name:     "auth_token",
-		Value:    tokenString,
-		HttpOnly: true,  // чтобы JS не мог читать cookie (защита от XSS)
-		Secure:   false, // true если HTTPS
-		Path:     "/",
-		MaxAge:   3600 * tokenExpires, // время жизни cookie
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(res, cookie)
-	body := []byte("OK")
-
-	res.Header().Set("Content-Type", http.DetectContentType(body))
-	res.WriteHeader(http.StatusOK)
-	_, err = res.Write(body)
-	if err != nil {
-		logger.Log.Error("failed to write response", zap.Error(err))
-	}
+	writeAuthSuccessResponse(res, tokenString, tokenExpires)
 }
 
 func (h *AuthHandler) UserLogin(res http.ResponseWriter, req *http.Request) {
@@ -93,23 +96,5 @@ func (h *AuthHandler) UserLogin(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	cookie := &http.Cookie{
-		Name:     "auth_token",
-		Value:    tokenString,
-		HttpOnly: true,  // чтобы JS не мог читать cookie (защита от XSS)
-		Secure:   false, // true если HTTPS
-		Path:     "/",
-		MaxAge:   3600 * tokenExpires, // время жизни cookie
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(res, cookie)
-	body := []byte("OK")
-
-	res.Header().Set("Content-Type", http.DetectContentType(body))
-	res.WriteHeader(http.StatusOK)
-	_, err = res.Write(body)
-	if err != nil {
-		logger.Log.Error("failed to write response", zap.Error(err))
-	}
-
+	writeAuthSuccessResponse(res, tokenString, tokenExpires)
 }

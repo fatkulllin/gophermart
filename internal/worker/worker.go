@@ -17,7 +17,7 @@ type Worker struct {
 
 type OrdersProcessing interface {
 	GetOrdersProcessing(jobs chan<- model.Order) error
-	OrdersProcessing(id int, jobs <-chan model.Order)
+	OrdersProcessing(ctx context.Context, id int, jobs <-chan model.Order)
 }
 
 func NewWorker(cfg *config.Config, service OrdersProcessing) *Worker {
@@ -32,10 +32,11 @@ func (w *Worker) Start(ctx context.Context) {
 
 	workerCount := w.config.WorkerCount
 	for i := range workerCount {
-		go w.service.OrdersProcessing(i, jobs)
+		go w.service.OrdersProcessing(ctx, i, jobs)
 	}
 
-	pollInterval := time.NewTicker(time.Duration(w.config.PollInterval) * time.Second)
+	interval := time.Duration(w.config.PollInterval) * time.Second
+	pollInterval := time.NewTicker(interval)
 	defer pollInterval.Stop()
 
 	for {

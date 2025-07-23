@@ -74,6 +74,7 @@ func (app *App) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var wg sync.WaitGroup
+	errCh := make(chan error, 2)
 	wg.Add(1)
 
 	go func() {
@@ -85,11 +86,17 @@ func (app *App) Run(ctx context.Context) error {
 		defer wg.Done()
 		if err := app.server.Start(ctx); err != nil && err != http.ErrServerClosed {
 			logger.Log.Error("server exited with error", zap.Error(err))
+			errCh <- err
 			cancel()
 		}
 	}()
-	<-ctx.Done()
-	logger.Log.Info("shutting down...")
+	select {
+	case <-ctx.Done():
+		logger.Log.Info("shutting down...")
+	case err := <-errCh:
+		logger.Log.Warn("shutting down due to error")
+		return err
+	}
 
 	wg.Wait()
 	logger.Log.Info("shutdown complete")
