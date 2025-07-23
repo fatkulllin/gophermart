@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+  accrual:
+    image: golang:latest
+    volumes:
+      - ${PWD}/cmd/accrual/accrual_linux_amd64:/app/accrual_linux_amd64
+    entrypoint: ["/app/accrual_linux_amd64"]
+    container_name: accrual_container
+    ports:
+      - "8080:8080"

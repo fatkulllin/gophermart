@@ -12,7 +12,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    container: golang:1.23
+    container: golang:1.24
 
     services:
       postgres:
@@ -49,6 +49,11 @@ jobs:
         run: |
           (cd cmd/gophermart && go build -buildvcs=false -o gophermart)
           (cd cmd/accrual && chmod +x accrual_linux_amd64)
+      - name: Upload gophermart binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: gophermart-binary
+          path: cmd/gophermart/gophermart
 
       - name: Test
         run: |

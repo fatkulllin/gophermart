@@ -1,0 +1,32 @@
+-- +goose Up
+-- +goose StatementBegin
+CREATE TABLE users (
+  id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  login VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE orders (
+  id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  order_number BIGINT UNIQUE NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  accrual NUMERIC(10, 2) DEFAULT 0,
+  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE withdrawals (
+  id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  order_number BIGINT NOT NULL,
+  amount NUMERIC(10, 2) NOT NULL,
+  processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE IF EXISTS withdrawals;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS users;
+-- +goose StatementEnd
