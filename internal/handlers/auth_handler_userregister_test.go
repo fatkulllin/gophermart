@@ -13,8 +13,8 @@ import (
 )
 
 func TestUserRegister_Success(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService := new(MockAuthService)
+	h := NewAuthHandler(mockService)
 
 	user := model.UserCredentials{
 		Login:    "testuser",
@@ -45,8 +45,8 @@ func TestUserRegister_Success(t *testing.T) {
 }
 
 func TestUserRegister_UserExists(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService := new(MockAuthService)
+	h := NewAuthHandler(mockService)
 
 	user := model.UserCredentials{
 		Login:    "existinguser",
@@ -69,8 +69,8 @@ func TestUserRegister_UserExists(t *testing.T) {
 }
 
 func TestUserRegister_BadJson(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService := new(MockAuthService)
+	h := NewAuthHandler(mockService)
 
 	tests := []struct {
 		name string
@@ -105,8 +105,8 @@ func TestUserRegister_BadJson(t *testing.T) {
 }
 
 func TestUserRegister_ServiceError(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService := new(MockAuthService)
+	h := NewAuthHandler(mockService)
 
 	user := model.UserCredentials{
 		Login:    "existinguser",
@@ -129,8 +129,8 @@ func TestUserRegister_ServiceError(t *testing.T) {
 }
 
 func TestUserRegister_SetAuthCookie(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService := new(MockAuthService)
+	h := NewAuthHandler(mockService)
 
 	user := model.UserCredentials{
 		Login:    "testuser",

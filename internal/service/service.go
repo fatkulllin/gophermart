@@ -138,7 +138,6 @@ func (s *Service) GetOrdersProcessing(jobs chan<- model.Order) error {
 	return nil
 }
 
-// TODO нужен грейсфул шатдаун
 func (s *Service) OrdersProcessing(id int, jobs <-chan model.Order, accrualSystemAddress string) {
 	endpoint, err := url.Parse(accrualSystemAddress)
 	if err != nil {

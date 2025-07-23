@@ -14,8 +14,8 @@ import (
 )
 
 func TestPostLoadOrderNubmer_Accepted(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService := new(MockOrderService)
+	h := NewOrderHandler(mockService)
 
 	claims := model.Claims{UserID: 42}
 
@@ -46,8 +46,8 @@ func TestPostLoadOrderNubmer_Accepted(t *testing.T) {
 }
 
 func TestPostLoadOrderNubmer_TestClaims(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService := new(MockOrderService)
+	h := NewOrderHandler(mockService)
 
 	claims := model.Claims{}
 

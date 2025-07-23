@@ -7,16 +7,20 @@ import (
 	"github.com/fatkulllin/gophermart/internal/config"
 	"github.com/fatkulllin/gophermart/internal/logger"
 	"github.com/fatkulllin/gophermart/internal/model"
-	"github.com/fatkulllin/gophermart/internal/service"
 	"go.uber.org/zap"
 )
 
 type Worker struct {
 	config  *config.Config
-	service *service.Service
+	service OrdersProcessing
 }
 
-func NewWorker(cfg *config.Config, service *service.Service) *Worker {
+type OrdersProcessing interface {
+	GetOrdersProcessing(jobs chan<- model.Order) error
+	OrdersProcessing(id int, jobs <-chan model.Order, accrualSystemAddress string)
+}
+
+func NewWorker(cfg *config.Config, service OrdersProcessing) *Worker {
 	return &Worker{
 		config:  cfg,
 		service: service,

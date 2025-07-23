@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupMockHandler() (*MockService, *Handlers) {
-	mockService := new(MockService)
-	return mockService, NewHandlers(mockService)
+func setupMockHandler() (*MockAuthService, *AuthHandler) {
+	mockService := new(MockAuthService)
+	return mockService, NewAuthHandler(mockService)
 }
 
 func TestUserLogin_Success(t *testing.T) {
@@ -72,8 +72,7 @@ func TestUserLogin_IncorrectPassword(t *testing.T) {
 }
 
 func TestUserLogin_BadJson(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService, h := setupMockHandler()
 
 	tests := []struct {
 		name string
@@ -112,8 +111,7 @@ func TestUserLogin_BadJson(t *testing.T) {
 }
 
 func TestUserLogin_ServiceError(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService, h := setupMockHandler()
 
 	user := model.UserCredentials{
 		Login:    "existinguser",
@@ -136,8 +134,7 @@ func TestUserLogin_ServiceError(t *testing.T) {
 }
 
 func TestUserLogin_SetAuthCookie(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandlers(mockService)
+	mockService, h := setupMockHandler()
 
 	user := model.UserCredentials{
 		Login:    "testuser",

@@ -42,8 +42,11 @@ func TestUserRegister_RealDB(t *testing.T) {
 	password := password.NewPassword()
 
 	service := service.NewService(store, tokenManager, password)
-	handlers := handlers.NewHandlers(service)
-	server := server.NewServer(cfg, handlers)
+	authHandler := handlers.NewAuthHandler(service)
+	orderHandler := handlers.NewOrderHandler(service)
+	balanceHandler := handlers.NewBalanceHandler(service)
+	debugHandler := handlers.NewDebugHandler()
+	server := server.NewServer(cfg, authHandler, orderHandler, balanceHandler, debugHandler)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

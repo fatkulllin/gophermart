@@ -50,8 +50,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 	password := password.NewPassword()
 
 	service := service.NewService(store, tokenManager, password)
-	handlers := handlers.NewHandlers(service)
-	server := server.NewServer(cfg, handlers)
+	authHandler := handlers.NewAuthHandler(service)
+	orderHandler := handlers.NewOrderHandler(service)
+	balanceHandler := handlers.NewBalanceHandler(service)
+	debugHandler := handlers.NewDebugHandler()
+	server := server.NewServer(cfg, authHandler, orderHandler, balanceHandler, debugHandler)
 	worker := worker.NewWorker(cfg, service)
 
 	return &App{
@@ -61,7 +64,6 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}, nil
 }
 
-// TODO: нужна обработка ошибок
 func (app *App) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

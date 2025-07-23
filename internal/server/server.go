@@ -19,28 +19,28 @@ type Server struct {
 	httpServer *http.Server
 }
 
-func NewRouter(cfg *config.Config, handlers *handlers.Handlers) chi.Router {
+func NewRouter(cfg *config.Config, authHandler *handlers.AuthHandler, orderHandeler *handlers.OrderHandler, balanceHandler *handlers.BalanceHandler, debugHandler *handlers.DebugHandler) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
 
-	r.Post("/api/user/register", handlers.UserRegister)
-	r.Post("/api/user/login", handlers.UserLogin)
+	r.Post("/api/user/register", authHandler.UserRegister)
+	r.Post("/api/user/login", authHandler.UserLogin)
 	r.Group(func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(cfg.JWTSecret))
-		r.Post("/api/user/orders", handlers.LoadOrderNumber)
-		r.Get("/api/user/orders", handlers.GetUserOrders)
-		r.Get("/api/user/balance", handlers.GetUserBalance)
-		r.Post("/api/user/balance/withdraw", handlers.WriteOffPoints)
-		r.Get("/api/user/withdrawals", handlers.GetWriteOffPoints)
-		r.Get("/debug", handlers.Debug)
+		r.Post("/api/user/orders", orderHandeler.LoadOrderNumber)
+		r.Get("/api/user/orders", orderHandeler.GetUserOrders)
+		r.Get("/api/user/balance", balanceHandler.GetUserBalance)
+		r.Post("/api/user/balance/withdraw", balanceHandler.WriteOffPoints)
+		r.Get("/api/user/withdrawals", balanceHandler.GetWriteOffPoints)
+		r.Get("/debug", debugHandler.Debug)
 	})
 	return r
 }
 
-func NewServer(cfg *config.Config, handlers *handlers.Handlers) *Server {
-	router := NewRouter(cfg, handlers)
+func NewServer(cfg *config.Config, authHandler *handlers.AuthHandler, orderHandeler *handlers.OrderHandler, balanceHandler *handlers.BalanceHandler, debugHandler *handlers.DebugHandler) *Server {
+	router := NewRouter(cfg, authHandler, orderHandeler, balanceHandler, debugHandler)
 	return &Server{
 		config: cfg,
 		httpServer: &http.Server{
