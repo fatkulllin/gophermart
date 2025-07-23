@@ -19,6 +19,16 @@ type Config struct {
 	JWTExpires           int    `env:"JWT_EXPIRES"`
 }
 
+const (
+	DefaultAddress        = "localhost:8081"
+	DefaultDatabase       = "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable"
+	DefaultJWTSecret      = "TOKEN"
+	DefaultJWTExpires     = 24
+	DefaultAccrualAddress = "http://localhost:8080"
+	DefaultPollInterval   = 1
+	DefaultWorkerCount    = 5
+)
+
 func validateAddress(s string) error {
 	_, _, err := net.SplitHostPort(s)
 	if err != nil {
@@ -27,24 +37,16 @@ func validateAddress(s string) error {
 	return nil
 }
 
-// func validateAddress(s string) error {
-// 	_, err := url.Parse(s)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
-
 func LoadConfig() (*Config, error) {
 
 	config := Config{
-		Address:              "localhost:8081",
-		Database:             "host=localhost user=postgres password=postgres dbname=postgres port=5432 sslmode=disable",
-		JWTSecret:            "TOKEN",
-		JWTExpires:           24,
-		AccrualSystemAddress: "http://localhost:8080",
-		PollInterval:         1,
-		WorkerCount:          5,
+		Address:              DefaultAddress,
+		Database:             DefaultDatabase,
+		JWTSecret:            DefaultJWTSecret,
+		JWTExpires:           DefaultJWTExpires,
+		AccrualSystemAddress: DefaultAccrualAddress,
+		PollInterval:         DefaultPollInterval,
+		WorkerCount:          DefaultWorkerCount,
 	}
 
 	pflag.StringVarP(&config.Address, "address", "a", config.Address, "set host:port")
